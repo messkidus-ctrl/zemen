@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: zemen-bingo
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: BOT_TOKEN
+        value: ""
+      - key: GAME_URL
+        value: https://your-public-url.onrender.com
+      - key: DATABASE_URL
+        value: ""
+      - key: MIGRATE_SECRET
+        value: change_me_long_random_string

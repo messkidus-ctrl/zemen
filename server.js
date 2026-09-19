@@ -1027,13 +1027,13 @@ function startTelegramBot(){
   const user = await loadUser(String(tid));
   if(user){
     bot.sendMessage(chatId,
-      `👋 Hi *${user.name}!*\nWelcome to *Beteseb Bingo*, the ultimate bingo gaming experience! 🎉\n\n💰 Balance: *${parseFloat(user.balance).toFixed(2)} ETB*`,
+      `👋 Hi *${user.name}!*\nWelcome to *Zemen Bingo*, the ultimate bingo gaming experience! 🎉\n\n💰 Balance: *${parseFloat(user.balance).toFixed(2)} ETB*`,
       { parse_mode:'Markdown', reply_markup: MAIN_MENU }
     );
   } else {
     pending[tid] = { step:'ask_phone', name: firstName || 'Player' };
     bot.sendMessage(chatId,
-      `👋 Hi *${firstName || 'Player'}!*\nWelcome to *Beteseb Bingo!* 🎱\n\nPlease share your phone number to register:`,
+      `👋 Hi *${firstName || 'Player'}!*\nWelcome to *Zemen Bingo!* 🎱\n\nPlease share your phone number to register:`,
       { parse_mode:'Markdown', reply_markup:{ keyboard:[[{ text:'📱 Share Phone Number', request_contact:true }]], resize_keyboard:true, one_time_keyboard:true }}
     );
   }
@@ -1075,7 +1075,7 @@ bot.onText(/\/play/,  msg => showMainMenu(msg.chat.id, msg.from.id, msg.from.fir
       if(!user) return bot.sendMessage(msg.chat.id, '⚠️ Please register first by pressing 📝 Register.', { reply_markup: MAIN_MENU });
       bot.sendMessage(msg.chat.id, `🎮 Tap below to open the game:`, {
         reply_markup:{
-          inline_keyboard:[[{ text:'🎮 Play Beteseb Bingo', web_app:{ url:`${GAME_URL}?tid=${tid}` }}]]
+          inline_keyboard:[[{ text:'🎮 Play Zemen Bingo', web_app:{ url:`${GAME_URL}?tid=${tid}` }}]]
         }
       });
     }
@@ -1129,7 +1129,7 @@ bot.onText(/\/play/,  msg => showMainMenu(msg.chat.id, msg.from.id, msg.from.fir
 
     else if(text === '📖 Instructions'){
       bot.sendMessage(msg.chat.id,
-        `📖 *How to Play Beteseb Bingo*\n\n1️⃣ Deposit ETB into your wallet\n2️⃣ Choose a stake tier (10–100 ETB)\n3️⃣ Pick your lucky card (1–400)\n4️⃣ Numbers are called every 5 seconds\n5️⃣ Mark numbers on your card\n6️⃣ Complete a pattern and press *BINGO!* 🎉\n\n🏆 Winner gets *80%* of the total pot\n🏠 House takes *20%*\n⚠️ False BINGO = disqualification!`,
+        `📖 *How to Play Zemen Bingo*\n\n1️⃣ Deposit ETB into your wallet\n2️⃣ Choose a stake tier (10–100 ETB)\n3️⃣ Pick your lucky card (1–400)\n4️⃣ Numbers are called every 5 seconds\n5️⃣ Mark numbers on your card\n6️⃣ Complete a pattern and press *BINGO!* 🎉\n\n🏆 Winner gets *80%* of the total pot\n🏠 House takes *20%*\n⚠️ False BINGO = disqualification!`,
         { parse_mode:'Markdown', reply_markup: MAIN_MENU }
       );
     }

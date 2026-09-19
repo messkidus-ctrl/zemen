@@ -8,6 +8,7 @@
 
 const TelegramBot = require('node-telegram-bot-api');
 const db = require('./db');
+const { parseReferralFromText } = require('./referral');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const GAME_URL  = process.env.GAME_URL || 'https://your-app.onrender.com';
@@ -18,9 +19,10 @@ const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 const pendingPhone = {}; // telegramId -> { name, step }
 
 // ─── /start command ──────────────────────────────────────────
-bot.onText(/\/start/, async (msg) => {
+bot.onText(/\/start(?:\s+.*)?/, async (msg) => {
   const telegramId = msg.from.id;
   const firstName  = msg.from.first_name || 'Player';
+  const referralId = parseReferralFromText(msg.text || '');
 
   // Check if already registered
   const existing = await db.getUserByTelegramId(telegramId);
@@ -40,7 +42,7 @@ bot.onText(/\/start/, async (msg) => {
   }
 
   // New user — start registration
-  pendingPhone[telegramId] = { name: firstName, step: 'ask_name' };
+  pendingPhone[telegramId] = { name: firstName, step: 'ask_name', referredBy: referralId };
 
   bot.sendMessage(msg.chat.id,
     `👋 Welcome to *Zemen Bingo!*\n\nLet's get you registered.\nWhat should we call you?`,
@@ -88,7 +90,8 @@ bot.on('contact', async (msg) => {
   const name  = pending.name;
 
   try {
-    const user = await db.registerUser(telegramId, name, phone);
+    const referral = pending.referredBy || null;
+    const user = await db.registerUser(telegramId, name, phone, referral);
     delete pendingPhone[telegramId];
 
     bot.sendMessage(msg.chat.id,

@@ -18,6 +18,7 @@ const app    = express();
 const server = http.createServer(app);
 const wss    = new WebSocket.Server({ server });
 const PORT   = process.env.PORT || 3000;
+const { getReferralReward } = require('./referral');
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/audio', express.static(path.join(__dirname, 'audio')));
@@ -124,12 +125,29 @@ if (process.env.DATABASE_URL) {
         );
         if (!r[0]) return null;
         const dep = r[0];
-        // Credit balance
-        const u = await this.q('SELECT telegram_id,balance FROM users WHERE id=$1', [dep.user_id]);
+        const u = await this.q('SELECT telegram_id,balance,referrer_telegram_id FROM users WHERE id=$1', [dep.user_id]);
         if (u[0]) {
           const newBal = parseFloat(u[0].balance) + parseFloat(dep.amount);
           await this.setBalance(u[0].telegram_id, newBal);
           await this.logTx(u[0].telegram_id, 'deposit', dep.amount, newBal, dep.tx_ref);
+
+          if (u[0].referrer_telegram_id) {
+            const refReward = getReferralReward(dep.amount);
+            const referrer = await this.getUser(u[0].referrer_telegram_id);
+            if (referrer) {
+              const newRefBal = Number((Number(referrer.balance) + Number(refReward)).toFixed(2));
+              await this.setBalance(String(u[0].referrer_telegram_id), newRefBal);
+              await this.logTx(String(u[0].referrer_telegram_id), 'referral_bonus', refReward, newRefBal, `ref:${u[0].telegram_id}`);
+
+              const client = Object.values(clients).find(c => String(c.telegramId) === String(u[0].referrer_telegram_id));
+              if (client) {
+                client.balance = newRefBal;
+                send(client.ws, { type: 'balanceUpdate', balance: newRefBal });
+                send(client.ws, { type: 'notification', message: `🎁 Referral bonus: ${refReward.toFixed(2)} ETB credited to your game balance!` });
+              }
+            }
+          }
+
           return { telegramId: u[0].telegram_id, newBalance: newBal, amount: dep.amount };
         }
         return null;
@@ -291,12 +309,41 @@ const clients={}, rooms={}, userCache={};
 
 // ─── USER HELPERS ────────────────────────────────────────────
 async function loadUser(tid) {
-  if(db){try{const u=await db.getUser(tid);if(u){userCache[tid] = { name: u.name, phone: u.phone, balance: parseFloat(u.balance), isAdmin: u.is_admin === true };}}catch(e){}}
+  if(db){try{const u=await db.getUser(tid);if(u){userCache[tid] = { name: u.name, phone: u.phone, balance: parseFloat(u.balance), referrerTelegramId: u.referrer_telegram_id ? String(u.referrer_telegram_id) : null, isAdmin: u.is_admin === true };}}catch(e){}}
   return userCache[tid]||null;
 }
 async function saveBalance(tid, bal) {
   if(userCache[tid]) userCache[tid].balance=bal;
   if(db&&tid){try{await db.setBalance(tid,bal);}catch(e){}}
+}
+
+async function awardReferralBonus(referrerTelegramId, depositAmount, referredTelegramId) {
+  if (!referrerTelegramId || !depositAmount) return null;
+  const reward = getReferralReward(depositAmount);
+  if (reward <= 0) return null;
+
+  const referrer = await loadUser(String(referrerTelegramId));
+  if (!referrer) return null;
+
+  const newBalance = Number((Number(referrer.balance) + reward).toFixed(2));
+  referrer.balance = newBalance;
+  if (db) {
+    try {
+      await db.setBalance(String(referrerTelegramId), newBalance);
+      await db.logTx(String(referrerTelegramId), 'referral_bonus', reward, newBalance, `ref:${String(referredTelegramId || '')}`);
+    } catch (e) {
+      console.error('Referral bonus DB error:', e.message);
+    }
+  }
+
+  const client = Object.values(clients).find(c => String(c.telegramId) === String(referrerTelegramId));
+  if (client) {
+    client.balance = newBalance;
+    send(client.ws, { type: 'balanceUpdate', balance: newBalance });
+    send(client.ws, { type: 'notification', message: `🎁 Referral bonus: ${reward.toFixed(2)} ETB credited to your game balance!` });
+  }
+
+  return { reward, newBalance };
 }
 
 // ─── ROOM HELPERS ────────────────────────────────────────────
@@ -740,7 +787,11 @@ break;
             }catch(e){console.error('Deposit error:',e.message); send(ws,{type:'error',message:'Deposit failed: '+e.message});}
           } else {
             // Memory mode: auto-approve
-            client.balance+=amount;
+            client.balance += Number(amount);
+            const referrerCache = userCache && userCache[client.telegramId] ? userCache[client.telegramId].referrerTelegramId : null;
+            if (referrerCache) {
+              await awardReferralBonus(referrerCache, Number(amount), client.telegramId);
+            }
             send(ws,{type:'balanceUpdate',balance:client.balance});
             send(ws,{type:'depositSubmitted',message:'Deposit approved (demo mode).'});
           }
@@ -834,7 +885,12 @@ app.post('/api/admin/deposits/:id/approve', adminAuth, async(req,res)=>{
   if(!db) return res.json({ok:true});
   const result=await db.approveDeposit(parseInt(req.params.id));
   if(result){
-    // Push balance update to connected user
+    const refUser = await db.getUser(result.telegramId);
+    const referrerId = refUser && refUser.referrer_telegram_id ? String(refUser.referrer_telegram_id) : null;
+    if (referrerId) {
+      await awardReferralBonus(referrerId, result.amount, result.telegramId);
+    }
+
     const cl=Object.values(clients).find(c=>c.telegramId===String(result.telegramId));
     if(cl){cl.balance=result.newBalance;send(cl.ws,{type:'balanceUpdate',balance:result.newBalance});send(cl.ws,{type:'notification',message:`✅ Deposit of ${result.amount} ETB approved!`});}
   }

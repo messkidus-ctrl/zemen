@@ -14,13 +14,14 @@ const pool = new Pool({
 
 module.exports = {
   // ── User operations ──
-  async registerUser(telegramId, name, phone) {
+  async registerUser(telegramId, name, phone, referrerTelegramId = null) {
     const { rows } = await pool.query(
-      `INSERT INTO users(telegram_id, name, phone)
-       VALUES($1, $2, $3)
-       ON CONFLICT(telegram_id) DO UPDATE SET last_seen=NOW(), name=$2
+      `INSERT INTO users(telegram_id, name, phone, referrer_telegram_id)
+       VALUES($1, $2, $3, $4)
+       ON CONFLICT(telegram_id) DO UPDATE SET last_seen=NOW(), name=$2, phone=$3,
+         referrer_telegram_id = COALESCE(users.referrer_telegram_id, EXCLUDED.referrer_telegram_id)
        RETURNING *`,
-      [telegramId, name, phone]
+      [telegramId, name, phone, referrerTelegramId]
     );
     return rows[0];
   },

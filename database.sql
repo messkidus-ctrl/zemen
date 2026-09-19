@@ -9,17 +9,18 @@ CREATE DATABASE beteseb_bingo;
 
 -- ─── USERS ──────────────────────────────────────────────────────
 CREATE TABLE users (
-  id              SERIAL PRIMARY KEY,
-  telegram_id     BIGINT UNIQUE NOT NULL,
-  name            VARCHAR(50) NOT NULL,
-  phone           VARCHAR(20),
-  balance         NUMERIC(10,2) DEFAULT 500.00,
-  total_games     INT DEFAULT 0,
-  total_wins      INT DEFAULT 0,
-  total_winnings  NUMERIC(10,2) DEFAULT 0,
-  is_banned       BOOLEAN DEFAULT FALSE,
-  created_at      TIMESTAMPTZ DEFAULT NOW(),
-  last_seen       TIMESTAMPTZ DEFAULT NOW()
+  id                  SERIAL PRIMARY KEY,
+  telegram_id         BIGINT UNIQUE NOT NULL,
+  name                VARCHAR(50) NOT NULL,
+  phone               VARCHAR(20),
+  referrer_telegram_id BIGINT,
+  balance             NUMERIC(10,2) DEFAULT 500.00,
+  total_games         INT DEFAULT 0,
+  total_wins          INT DEFAULT 0,
+  total_winnings      NUMERIC(10,2) DEFAULT 0,
+  is_banned           BOOLEAN DEFAULT FALSE,
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  last_seen           TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ─── GAMES ──────────────────────────────────────────────────────
